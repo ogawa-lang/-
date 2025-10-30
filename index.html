@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日記分析アプリ V5 (携帯対応)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Interフォント -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans JP', 'Inter', sans-serif;
+        }
+        
+        /* チャットバブル */
+        .chat-bubble {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+        }
+        .ai-bubble {
+            background-color: #F3F4F6;
+            color: #1F2937;
+            align-self: flex-start;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .user-bubble {
+            background-color: #3B82F6;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 0.25rem;
+        }
+        
+        /* マイクボタン */
+        #record-button {
+            transition: all 0.3s ease;
+        }
+        #record-button.recording {
+            background-color: #EF4444;
+            box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.4); }
+            100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        }
+
+        /* レポートカード */
+        .report-section {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+        }
+        .report-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: rgb(107 114 128);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        .report-content {
+            color: rgb(31 41 55);
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- メインのUIコンテナ -->
+    <!-- ★ 修正: 高さを 'min-height' に変更し、キーボード表示に対応 -->
+    <main class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl flex flex-col" style="min-height: 95vh; height: auto; margin-top: 2.5vh; margin-bottom: 2.5vh;">
+        
+        <h1 class="text-2xl font-bold text-center text-gray-800 p-6 border-b border-gray-200">
+            AI会話分析
+        </h1>
+
+        <!-- 1. チャットコンテナ -->
+        <div id="chat-container" class="flex-1 p-6 space-y-4 overflow-y-auto flex flex-col">
+            <!-- JSでチャットバブルを動的に生成 -->
+        </div>
+
+        <!-- 2. コントロールエリア (マイク or テキスト入力) -->
+        <div id="controls-container" class="p-6 border-t border-gray-200 bg-gray-50">
+            <!-- マイクボタン (デフォルトで表示、JSで非表示切り替え) -->
+            <button id="record-button" class="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50">
+                <svg id="mic-icon" class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0a5 5 0 01-4 4.9V17a1 1 0 102 0v-2.1a1 1 0 00-1-1 1 1 0 10-1 1v2.1a3 3 0 01-3 2.97A3 3 0 015 15v-2.1a1 1 0 00-1 1 1 1 0 10-1-1v2.1a5 5 0 01-4-4.9 1 1 0 10-2 0 7.001 7.001 0 006 6.93V17a1 1 0 102 0v-2.07z" clip-rule="evenodd"></path></svg>
+                <svg id="stop-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+            </button>
+            
+            <!-- ★ 新機能: テキスト入力 (デフォルトで非表示) -->
+            <form id="text-input-form" class="hidden flex space-x-3">
+                <input type="text" id="text-input" placeholder="テキストで回答..." class="flex-1 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <button type="submit" id="send-button" class="bg-blue-600 text-white font-semibold px-5 py-3 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50">
+                    送信
+                </button>
+            </form>
+            
+            <p id="status-text" class="text-center text-sm text-gray-500 mt-3 h-4"></p>
+        </div>
+
+        <!-- 3. 要約・分析エリア (変更なし) -->
+        <div id="summary-container" class="p-6 border-t border-gray-200 hidden">
+            <!-- ... (内容は変更なし) ... -->
+            <div id="summary-display" class="bg-gray-100 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-2">要約の確認</h3>
+                <p id="summary-text" class="text-sm text-gray-700 whitespace-pre-wrap"></p>
+                <p class="text-sm font-medium text-gray-800 mt-4">この内容で分析を実行しますか？</p>
+            </div>
+            <button id="final-analyze-button" class="w-full bg-blue-600 text-white font-bold text-lg p-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 ease-in-out mt-4">
+                分析を実行する
+            </button>
+        </div>
+        
+        <!-- 4. 最終レポートカード (変更なし) -->
+        <div id="report-card" class="hidden p-6 overflow-y-auto">
+            <!-- ... (内容は変更なし) ... -->
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">最終分析レポート</h2>
+            <div class="report-section">
+                <h3 class="report-title">客観的な視点 (第三者視点)</h3>
+                <p id="report-objective" class="report-content whitespace-pre-wrap"></p>
+            </div>
+            <div class="report-section">
+                <h3 class="report-title">根本原因の分析</h3>
+                <div class="report-content">
+                    <p class="mb-2"><strong>内的要因:</strong> <span id="report-internal"></span></p>
+                    <p><strong>外的要因:</strong> <span id="report-external"></span></p>
+                </div>
+            </div>
+            <div id="opponent-section" class="report-section hidden">
+                <h3 class="report-title">相手の視点の可能性</h3>
+                <p id="report-opponent" class="report-content whitespace-pre-wrap"></p>
+            </div>
+            <div class="report-section">
+                <h3 class="report-title">次へのアクションプラン</h3>
+                <ul id="report-plan" class="report-content list-disc list-inside space-y-2"></ul>
+            </div>
+            <div class="report-section">
+                <h3 class="report-title">分析タグ</h3>
+                <div id="report-tags" class="report-content flex flex-wrap gap-2"></div>
+            </div>
+            <div id="save-section" class="mt-6 pt-6 border-t border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">分析の保存</h3>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <label for="folder-select" class="text-sm font-medium text-gray-700">保存先フォルダ:</label>
+                    <select id="folder-select" class="flex-1 p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="work">仕事の悩み</option>
+                        <option value="private">プライベート</option>
+                        <option value="other">その他</option>
+                    </select>
+                    <button id="save-button" class="bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300 transition-all">
+                        このフォルダに保存
+                    </button>
+                </div>
+                <p id="save-status" class="text-sm text-emerald-700 font-medium mt-3 h-4"></p>
+            </div>
+            <button id="reset-button" class="w-full bg-gray-500 text-white font-semibold p-3 rounded-lg shadow-md hover:bg-gray-600 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-all mt-6">
+                新しい分析を始める
+            </button>
+        </div>
+        
+        <!-- 5. エラーメッセージ表示 (変更なし) -->
+        <div id="error-message" class="hidden p-4 m-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            <p class="font-bold">エラー</p>
+            <p id="error-text"></p>
+        </div>
+
+    </main>
+
+    <script type="module">
+        // --- 1. 定数定義 ---
+        const MASTER_PROMPT = 
+'# あなたの役割 (ペルソナ):\n' +
+'あなたは、経験豊富な「行動分析コーチ」であり、同時に高い共感力を持つ「心理カウンセラー」です。日本語で回答してください。\n' +
+'# あなたの目的 (ゴール):\n' +
+'ユーザーから提供された「うまくいかなかった出来事」の**要約データ**を分析し、ユーザーが「客観的な事実」と「相手の視点」を理解し、「次への具体的な行動」を起こせるように導くことです。\n' +
+'# 入力形式 (要約データ):\n' +
+'以下のJSON形式でデータを受け取ります。\n' +
+'{\n' +
+'  "title": "（出来事のタイトル）",\n' +
+'  "situation": "（状況）",\n' +
+'  "action": "（行動）",\n' +
+'  "result": "（結果）",\n' +
+'  "pre_action": "（行動の手前）"\n' +
+'}\n' +
+'# 出力形式 (最終レポート):\n' +
+'必ず、以下のキーを持つJSON形式で回答してください。\n' +
+'{\n' +
+'  "objective_text": "（出来事を第三者視点で書き直したテキスト）",\n' +
+'  "cause_internal": "（分析した根本的な内的要因）",\n' +
+'  "cause_external": "（分析した根本的な外的要因）",\n' +
+'  "opponent_perspective": "（推測される相手の視点。対人問題でない場合は null を返す）",\n' +
+'  "action_plan": ["（対処法1）", "（対処法2）", "（対処法3）"],\n' +
+'  "auto_tags": ["（タグ1）", "（タグ2）", "（タグ3）"]\n' +
+'}\n' +
+'# 実行ステップ:\n' +
+'1.  入力された5つの項目を読み込み、出来事の全体像を把握します。\n' +
+'2.  まず、この問題が主に「対人関係」によるものか、「自己完結型（準備、体調、技術など）」のものかを判断します。\n' +
+'3.  `objective_text` を生成します。ユーザーの感情的な表現（例：「最悪だ」）を排除し、事実のみを時系列で再構成してください。\n' +
+'4.  `pre_action`（行動の手前）を特に重視し、`cause_internal`（内的要因）と `cause_external`（外的要因）を分析します。\n' +
+'5.  [重要] ステップ2で「対人関係」と判断した場合のみ、`opponent_perspective` に相手（上司、クライアントなど）が感じていたであろう感情や立場を推測して記述します。それ以外の場合は、必ず null を設定してください。\n' +
+'6.  `action_plan` に、具体的で、明日から実行可能で、ポジティブな行動提案を3つ生成します。\n' +
+'7.  `auto_tags` に、ダッシュボードでの集計に使えるよう、この出来事を分類するタグ（例： #準備不足, #対人関係, #時間管理 など）を3〜5個生成します。\n' +
+'8.  最後に、上記のキーを持つJSONデータのみを出力します。\n';
+
+
+        const SUMMARY_PROMPT =
+'# あなたの役割 (ペルソナ):\n' +
+'あなたは、ユーザーの会話を整理する優秀なアシスタントです。日本語で回答してください。\n' +
+'\n' +
+'# あなたの目的 (ゴール):\n' +
+'ユーザーが「うまくいかなかった出来事」について、5つの質問（タイトル、状況、行動、結果、行動の手前）に答えた会話ログを読み、それを簡潔で客観的な**要約テキスト**に変換することです。\n' +
+'\n' +
+'# 入力形式 (会話ログ):\n' +
+'以下のJSON形式でデータを受け取ります。\n' +
+'{\n' +
+'  "title": "（ユーザーが回答したタイトル）",\n' +
+'  "situation": "（ユーザーが回答した状況）",\n' +
+'  "action": "（ユーザーが回答した行動）",\n' +
+'  "result": "（ユーザーが回答した結果）",\n' +
+'  "pre_action": "（ユーザーが回答した行動の手前）"\n' +
+'}\n' +
+'\n' +
+'# 出力形式 (要約テキスト):\n' +
+'**JSONではなく、プレーンテキスト**で、以下のフォーマットに従って出力してください。\n' +
+'「（タイトル）」\n' +
+'状況： (situationの要約)\n' +
+'行動： (actionの要約)\n' +
+'結果： (resultの要約)\n' +
+'背景： (pre_actionの要約)\n' +
+'\n' +
+'# 例:\n' +
+'「クライアントとの会議」\n' +
+'状況： 月曜朝のZoomでA部長も同席していた。\n' +
+'行動： 新機能のデモを開始した。\n' +
+'結果： PCがフリーズし、5分間沈黙が続いた。\n' +
+'背景： PCの不調に気づいていたが再起動しなかった。\n';
+
+        const API_KEY = ""; 
+        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+        
+        // --- 2. 会話フローの定義 ---
+        const questions = [
+            "こんにちは。分析したい「うまくいかなかった出来事」のタイトルを教えてください。", // title
+            "その時、どんな状況でしたか？ (いつ、どこで、誰がいましたか？)", // situation
+            "あなたは具体的に何をしましたか？ (何を言ったり、行ったりしましたか？)", // action
+            "その結果、どうなりましたか？", // result
+            "最後の質問です。その行動の直前、何か気になっていたことや、準備不足だと感じていたことはありましたか？" // pre_action
+        ];
+        
+        let analysisData = { title: "", situation: "", action: "", result: "", pre_action: "" };
+        const analysisKeys = ["title", "situation", "action", "result", "pre_action"];
+        let currentQuestionIndex = 0;
+        
+        // --- 3. DOM要素の取得 ---
+        const chatContainer = document.getElementById('chat-container');
+        const controlsContainer = document.getElementById('controls-container');
+        const statusText = document.getElementById('status-text');
+        
+        // 音声入力
+        const recordButton = document.getElementById('record-button');
+        const micIcon = document.getElementById('mic-icon');
+        const stopIcon = document.getElementById('stop-icon');
+        let isRecording = false;
+
+        // ★ 新機能: テキスト入力
+        const textInputForm = document.getElementById('text-input-form');
+        const textInput = document.getElementById('text-input');
+        const sendButton = document.getElementById('send-button');
+
+        const summaryContainer = document.getElementById('summary-container');
+        const summaryText = document.getElementById('summary-text');
+        const finalAnalyzeButton = document.getElementById('final-analyze-button');
+        
+        const reportCard = document.getElementById('report-card');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+
+        const saveButton = document.getElementById('save-button');
+        const folderSelect = document.getElementById('folder-select');
+        const saveStatus = document.getElementById('save-status');
+        const resetButton = document.getElementById('reset-button');
+
+        // --- 4. Web Speech API (音声認識) の初期化 ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let speechSupported = false; // ★ 修正: 音声サポートフラグ
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ja-JP';
+            recognition.interimResults = false;
+            recognition.continuous = false;
+            speechSupported = true;
+        }
+
+        // --- 5. 会話・UI制御関数 ---
+
+        function addMessage(role, text) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${role === 'user' ? 'user-bubble' : 'ai-bubble'}`;
+            bubble.textContent = text;
+            chatContainer.appendChild(bubble);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function askQuestion(index) {
+            if (index < questions.length) {
+                addMessage('ai', questions[index]);
+                // ★ 修正: サポート状況に応じて入力UIを有効化
+                if (speechSupported) {
+                    recordButton.disabled = false;
+                    statusText.textContent = 'AIが応答を待っています...';
+                } else {
+                    sendButton.disabled = false;
+                    textInput.disabled = false;
+                    statusText.textContent = 'テキストで回答してください';
+                }
+            } else {
+                // 全ての質問が終わった
+                recordButton.disabled = true;
+                sendButton.disabled = true;
+                textInput.disabled = true;
+                controlsContainer.classList.add('hidden'); // 入力エリアを隠す
+                statusText.textContent = '会話をまとめています...';
+                startSummarization();
+            }
+        }
+        
+        function storeAnswer(index, text) {
+            const key = analysisKeys[index];
+            analysisData[key] = text;
+        }
+        
+        function setRecordingState(isRecording) {
+            if (isRecording) {
+                recordButton.classList.add('recording');
+                micIcon.classList.add('hidden');
+                stopIcon.classList.remove('hidden');
+                statusText.textContent = 'お話しください...';
+            } else {
+                recordButton.classList.remove('recording');
+                micIcon.classList.remove('hidden');
+                stopIcon.classList.add('hidden');
+                statusText.textContent = 'AIが応答を待っています...';
+            }
+        }
+        
+        // ★ 新機能: テキスト回答の処理
+        function handleTextInput(event) {
+            event.preventDefault(); // フォームのデフォルト送信を防ぐ
+            const transcript = textInput.value.trim();
+            
+            if (transcript) {
+                addMessage('user', transcript); // 自分の回答を画面に追加
+                storeAnswer(currentQuestionIndex, transcript); // データを保存
+                
+                currentQuestionIndex++; // 次の質問へ
+                
+                // AIに次の質問をさせる (少し間を空ける)
+                sendButton.disabled = true;
+                textInput.disabled = true;
+                textInput.value = ''; // 入力欄をクリア
+                statusText.textContent = 'AIが考えています...';
+                setTimeout(() => {
+                    askQuestion(currentQuestionIndex);
+                }, 1000);
+            }
+        }
+
+        // --- 6. 音声認識イベントハンドラ (speechSupported が true の場合のみ設定) ---
+
+        if (speechSupported) {
+            recordButton.addEventListener('click', () => {
+                if (!recognition) return;
+                
+                if (isRecording) {
+                    recognition.stop();
+                    isRecording = false;
+                    setRecordingState(false);
+                } else {
+                    try {
+                        recognition.start();
+                        isRecording = true;
+                        setRecordingState(true);
+                        recordButton.disabled = true;
+                        errorMessage.classList.add('hidden');
+                    } catch (e) {
+                        showError('音声認識を開始できませんでした。マイクが接続されているか確認してください。');
+                    }
+                }
+            });
+
+            recognition.onstart = () => {
+                isRecording = true;
+                setRecordingState(true);
+            };
+            
+            recognition.onend = () => {
+                isRecording = false;
+                setRecordingState(false);
+                recordButton.disabled = false;
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                
+                if (transcript) {
+                    addMessage('user', transcript);
+                    storeAnswer(currentQuestionIndex, transcript);
+                    currentQuestionIndex++;
+                    
+                    recordButton.disabled = true;
+                    statusText.textContent = 'AIが考えています...';
+                    setTimeout(() => {
+                        askQuestion(currentQuestionIndex);
+                    }, 1000);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'no-speech') {
+                    statusText.textContent = '音声が聞こえませんでした。もう一度お試しください。';
+                } else if (event.error === 'network') {
+                    statusText.textContent = 'ネットワークエラー。もう一度お試しください。';
+                } else if (event.error === 'not-allowed') {
+                    showError('マイクへのアクセスが許可されていません。ブラウザの設定を確認してください。');
+                    recordButton.disabled = true;
+                } else {
+                    showError(`音声認識エラー: ${event.error}`);
+                }
+                isRecording = false;
+                setRecordingState(false);
+            };
+        }
+
+        // --- 7. 要約ステップ ---
+        async function startSummarization() {
+            try {
+                const summary = await callGemini(analysisData, SUMMARY_PROMPT, "text");
+                summaryText.textContent = summary;
+                summaryContainer.classList.remove('hidden');
+                chatContainer.classList.add('hidden'); 
+                
+                finalAnalyzeButton.onclick = () => {
+                    startFinalAnalysis(analysisData); 
+                };
+
+            } catch (error) {
+                showError(`要約の生成に失敗しました: ${error.message}`);
+                // エラー時は入力を再表示
+                controlsContainer.classList.remove('hidden');
+                chatContainer.classList.remove('hidden');
+                if(speechSupported) recordButton.disabled = false;
+                else sendButton.disabled = false;
+                
+                currentQuestionIndex = questions.length - 1; // 最後の質問に戻る
+            }
+        }
+        
+        // --- 8. 最終分析ステップ ---
+        async function startFinalAnalysis(dataToAnalyze) {
+            finalAnalyzeButton.disabled = true;
+            finalAnalyzeButton.textContent = '最終分析中...';
+            errorMessage.classList.add('hidden');
+            
+            try {
+                const reportData = await callGemini(dataToAnalyze, MASTER_PROMPT, "json");
+                displayReport(reportData);
+                summaryContainer.classList.add('hidden');
+                reportCard.classList.remove('hidden');
+
+            } catch (error) {
+                showError(`最終分析に失敗しました: ${error.message}`);
+                finalAnalyzeButton.disabled = false;
+                finalAnalyzeButton.textContent = '分析を実行する';
+            }
+        }
+
+        // --- 9. 汎用AI呼び出し関数 ---
+        async function callGemini(inputData, promptTemplate, responseType) {
+            
+            let promptText = promptTemplate;
+            let generationConfig = {};
+
+            if (responseType === "json") {
+                promptText += "\n\n# 実際の入力データ (要約):\n" + JSON.stringify(inputData, null, 2);
+                generationConfig = { "responseMimeType": "application/json" };
+            } else {
+                promptText += "\n\n# 実際の会話ログ:\n" + JSON.stringify(inputData, null, 2);
+            }
+            
+            const payload = {
+                contents: [{
+                    parts: [{ text: promptText }]
+                }],
+                generationConfig: generationConfig
+            };
+
+            const response = await fetchWithBackoff(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `APIリクエスト失敗: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const aiResponseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!aiResponseText) {
+                throw new Error('AIから有効なレスポンスがありませんでした。');
+            }
+
+            if (responseType === "json") {
+                try {
+                    return JSON.parse(aiResponseText);
+                } catch (parseError) {
+                    console.error('AIレスポンスのJSONパースエラー:', aiResponseText);
+                    throw new Error('AIが予期しない形式のデータを返しました。');
+                }
+            } else {
+                return aiResponseText;
+            }
+        }
+
+        // --- 10. レポート表示・エラー・Fetch (既存) ---
+        function displayReport(data) {
+            document.getElementById('report-objective').textContent = data.objective_text || 'N/A';
+            document.getElementById('report-internal').textContent = data.cause_internal || 'N/A';
+            document.getElementById('report-external').textContent = data.cause_external || 'N/A';
+            const opponentSection = document.getElementById('opponent-section');
+            if (data.opponent_perspective) {
+                document.getElementById('report-opponent').textContent = data.opponent_perspective;
+                opponentSection.classList.remove('hidden');
+            } else {
+                opponentSection.classList.add('hidden');
+            }
+            const planList = document.getElementById('report-plan');
+            planList.innerHTML = '';
+            if (data.action_plan && data.action_plan.length > 0) {
+                data.action_plan.forEach(plan => {
+                    const li = document.createElement('li');
+                    li.textContent = plan;
+                    planList.appendChild(li);
+                });
+            }
+            const tagsContainer = document.getElementById('report-tags');
+            tagsContainer.innerHTML = '';
+            if (data.auto_tags && data.auto_tags.length > 0) {
+                data.auto_tags.forEach(tag => {
+                    const span = document.createElement('span');
+                    span.className = 'bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full';
+                    span.textContent = tag;
+                    tagsContainer.appendChild(span);
+                });
+            }
+        }
+        
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+        
+        async function fetchWithBackoff(url, options, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok && response.status === 429 && retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                return response;
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                throw error;
+            }
+        }
+
+        // --- 11. 保存・リセット処理 ---
+        saveButton.addEventListener('click', () => {
+            const selectedFolder = folderSelect.options[folderSelect.selectedIndex].text;
+            saveStatus.textContent = `「${selectedFolder}」フォルダに保存しました。（実際には保存されません）`;
+            saveButton.disabled = true;
+            saveButton.textContent = '保存済み';
+            
+            setTimeout(() => {
+                saveStatus.textContent = '';
+            }, 3000);
+        });
+
+        resetButton.addEventListener('click', () => {
+            window.location.reload();
+        });
+
+
+        // --- 12. 初期化処理 ---
+        function initialize() {
+            // ★ 修正: 音声サポート状況に応じてUIを切り替え
+            if (speechSupported) {
+                // 音声が使える -> マイクボタンを表示
+                recordButton.classList.remove('hidden');
+                textInputForm.classList.add('hidden');
+                // 音声認識イベントリスナーを有効化
+                // (既に if (speechSupported) ブロック内で設定済み)
+            } else {
+                // 音声が使えない -> テキスト入力を表示
+                recordButton.classList.add('hidden');
+                textInputForm.classList.remove('hidden');
+                showError('音声認識がサポートされていません。テキストで入力してください。');
+                // テキスト入力のイベントリスナーを設定
+                textInputForm.addEventListener('submit', handleTextInput);
+            }
+            
+            // 最初の質問を開始
+            askQuestion(currentQuestionIndex);
+        }
+        
+        document.addEventListener('DOMContentLoaded', initialize);
+
+    </script>
+</body>
+</html>
+
